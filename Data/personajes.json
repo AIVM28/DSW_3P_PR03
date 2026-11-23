@@ -1,0 +1,22 @@
+[
+  {
+    "Id": 1,
+    "Nombre": "Kratos",
+    "Videojuego": "God of War",
+    "Clase": "Guerrero",
+    "Nivel": 85,
+    "Poder": 950,
+    "Disponible": false,
+    "ImagenUrl": "https://upload.wikimedia.org/wikipedia/commons/3/30/Kratos_%28God_of_War%29.jpg"
+  },
+  {
+    "Id": 2,
+    "Nombre": "Link",
+    "Videojuego": "The Legend of Zelda",
+    "Clase": "Espadach\u00EDn",
+    "Nivel": 75,
+    "Poder": 850,
+    "Disponible": true,
+    "ImagenUrl": "https://upload.wikimedia.org/wikipedia/commons/9/98/Link_%283261557351%29.jpg"
+  }
+]
