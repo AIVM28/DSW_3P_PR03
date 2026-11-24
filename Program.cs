@@ -1,13 +1,61 @@
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+
 using DSW_3P_PR02.Data;
 using DSW_3P_PR02.Repositories;
 using DSW_3P_PR02.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configurar OpenAPI.
-builder.Services.AddOpenApi();
+// Configurar OpenAPI y Swagger con autenticación JWT.
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        // Registrar el esquema Bearer.
+        document.Components ??= new OpenApiComponents();
+
+        document.Components.SecuritySchemes =
+            new Dictionary<string, IOpenApiSecurityScheme>
+            {
+                ["Bearer"] = new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Introduce el token JWT."
+                }
+            };
+
+        // Proteger las operaciones documentadas,
+        // excepto el endpoint de inicio de sesión.
+        foreach (var path in document.Paths)
+        {
+            if (path.Key.Equals(
+                "/api/auth/login",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            foreach (var operation in path.Value.Operations.Values)
+            {
+                operation.Security ??= new List<OpenApiSecurityRequirement>();
+
+                operation.Security.Add(new OpenApiSecurityRequirement
+                {
+                    [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+                });
+            }
+        }
+
+        return Task.CompletedTask;
+    });
+});
 
 // Habilitar los controladores.
 builder.Services.AddControllers();
@@ -35,7 +83,50 @@ builder.Services.AddScoped<
     PersonajeService
 >();
 
-// Configurar política de CORS.
+// Obtener configuración JWT desde User Secrets.
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("Falta Jwt:Key.");
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException("Falta Jwt:Issuer.");
+
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException("Falta Jwt:Audience.");
+
+var keyBytes = Convert.FromBase64String(jwtKey);
+
+if (keyBytes.Length < 32)
+{
+    throw new InvalidOperationException(
+        "La clave JWT debe contener al menos 32 bytes."
+    );
+}
+
+// Configurar autenticación JWT.
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+// Habilitar autorización.
+builder.Services.AddAuthorization();
+
+// Configurar CORS.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CharacterHubClient", policy =>
@@ -51,7 +142,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configurar el entorno de desarrollo.
+// Configurar Swagger.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -60,15 +151,19 @@ if (app.Environment.IsDevelopment())
     {
         options.SwaggerEndpoint(
             "/openapi/v1.json",
-            "CharacterHub API v1"
+            "DSW_3P_PR03 API v1"
         );
     });
 }
 
-// Configurar las rutas de la aplicación.
+// Configurar middleware.
 app.UseHttpsRedirection();
 
 app.UseCors("CharacterHubClient");
+
+app.UseAuthentication();
+
+app.UseAuthorization();
 
 app.MapControllers();
 
