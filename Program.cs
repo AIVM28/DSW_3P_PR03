@@ -1,4 +1,6 @@
 
+using Microsoft.EntityFrameworkCore;
+using DSW_3P_PR02.Data;
 using DSW_3P_PR02.Repositories;
 using DSW_3P_PR02.Services;
 
@@ -10,11 +12,30 @@ builder.Services.AddOpenApi();
 // Habilitar los controladores.
 builder.Services.AddControllers();
 
-// Configurar la inyección de dependencias.
-builder.Services.AddScoped<IPersonajeRepository, PersonajeJsonRepository>();
-builder.Services.AddScoped<IPersonajeService, PersonajeService>();
+// Obtener la cadena de conexión desde User Secrets.
+var connectionString = builder.Configuration
+    .GetConnectionString("SqlServerConnection")
+    ?? throw new InvalidOperationException(
+        "No se encontró la cadena de conexión SqlServerConnection."
+    );
 
-// Configurar politica de CORS.
+// Configurar SQL Server.
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(connectionString)
+);
+
+// Configurar la inyección de dependencias.
+builder.Services.AddScoped<
+    IPersonajeRepository,
+    PersonajeSQLRepository
+>();
+
+builder.Services.AddScoped<
+    IPersonajeService,
+    PersonajeService
+>();
+
+// Configurar política de CORS.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CharacterHubClient", policy =>
