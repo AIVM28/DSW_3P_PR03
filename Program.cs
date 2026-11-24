@@ -34,24 +34,29 @@ builder.Services.AddOpenApi(options =>
         // Proteger las operaciones documentadas,
         // excepto el endpoint de inicio de sesión.
         foreach (var path in document.Paths)
+    {
+        if (path.Key.Equals(
+            "/api/auth/login",
+            StringComparison.OrdinalIgnoreCase))
         {
-            if (path.Key.Equals(
-                "/api/auth/login",
-                StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            foreach (var operation in path.Value.Operations.Values)
-            {
-                operation.Security ??= new List<OpenApiSecurityRequirement>();
-
-                operation.Security.Add(new OpenApiSecurityRequirement
-                {
-                    [new OpenApiSecuritySchemeReference("Bearer", document)] = []
-                });
-            }
+            continue;
         }
+
+        if (path.Value?.Operations == null)
+        {
+            continue;
+        }
+
+        foreach (var operation in path.Value.Operations.Values)
+        {
+            operation.Security ??= new List<OpenApiSecurityRequirement>();
+
+            operation.Security.Add(new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+            });
+        }
+    }
 
         return Task.CompletedTask;
     });
@@ -126,19 +131,19 @@ builder.Services
 // Habilitar autorización.
 builder.Services.AddAuthorization();
 
-// Configurar CORS.
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("CharacterHubClient", policy =>
-    {
-        policy.WithOrigins(
-                "http://localhost:5500",
-                "http://127.0.0.1:5500"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
-});
+// Configurar política de CORS.
+// builder.Services.AddCors(options =>
+// {
+//     options.AddPolicy("DSW_3P_PR03", policy =>
+//     {
+//         policy.WithOrigins(
+//                 "http://localhost:5500",
+//                 "http://127.0.0.1:5500"
+//             )
+//             .AllowAnyHeader()
+//             .AllowAnyMethod();
+//     });
+// });
 
 var app = builder.Build();
 
@@ -159,7 +164,7 @@ if (app.Environment.IsDevelopment())
 // Configurar middleware.
 app.UseHttpsRedirection();
 
-app.UseCors("CharacterHubClient");
+app.UseCors("DSW_3P_PR03");
 
 app.UseAuthentication();
 
